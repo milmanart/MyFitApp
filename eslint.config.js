@@ -1,10 +1,16 @@
-// https://docs.expo.dev/guides/using-eslint/
-const { defineConfig } = require('eslint/config');
-const expoConfig = require('eslint-config-expo/flat');
+// eslint.config.js
+const { FlatCompat } = require('@eslint/eslintrc');
+const js = require('@eslint/js');
+const path = require('path');
 
-module.exports = defineConfig([
-  expoConfig,
+const compat = new FlatCompat({
+  baseDirectory: path.resolve(__dirname),
+  recommendedConfig: js.configs.recommended,
+});
+
+module.exports = [
+  ...compat.extends('expo'),
   {
-    ignores: ['dist/*'],
+    ignores: ['node_modules/**', 'dist/**'],
   },
-]);
+];
