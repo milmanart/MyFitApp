@@ -1,9 +1,21 @@
 // MyFitApp/navigation/AuthContext.tsx
-import React, { createContext, useState, useEffect, ReactNode } from 'react'
+
+import React, { createContext, useState, useEffect, ReactNode } from "react"
+import { onAuthStateChanged, type User } from "firebase/auth"
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { auth } from "../firebase"
+import {
+  signIn as firebaseSignIn,
+  signUp as firebaseSignUp,
+  signOut as firebaseSignOut,
+} from "../services/firebaseService"
+
+// Keys for AsyncStorage
+const AUTH_USER_KEY = 'auth_user'
+const AUTH_STATE_KEY = 'auth_state'
 
 interface AuthContextProps {
-  user: string | null
+  user: User | null
   loading: boolean
   signIn: (email: string, password: string) => Promise<void>
   signUp: (email: string, password: string) => Promise<void>
@@ -23,55 +35,83 @@ interface AuthProviderProps {
 }
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [user, setUser] = useState<string | null>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // При инициализации проверяем, есть ли сохранённый currentUser
+  // Load cached auth state for instant UI
   useEffect(() => {
-    const loadStoredUser = async () => {
+    const loadCachedAuth = async () => {
       try {
-        const stored = await AsyncStorage.getItem('currentUser')
-        if (stored) {
-          setUser(stored)
+        console.log("Loading cached auth state...")
+        const cachedAuthState = await AsyncStorage.getItem(AUTH_STATE_KEY)
+        const cachedUser = await AsyncStorage.getItem(AUTH_USER_KEY)
+        
+        if (cachedAuthState === 'authenticated' && cachedUser) {
+          console.log("Found cached authenticated user")
+          const parsedUser = JSON.parse(cachedUser)
+          setUser(parsedUser)
+        } else {
+          console.log("No cached auth state found")
         }
-      } catch {
-        // Игнорируем ошибки
-      } finally {
-        setLoading(false)
+      } catch (error) {
+        console.log('Error loading cached auth:', error)
       }
     }
-    loadStoredUser()
+
+    loadCachedAuth()
+  }, [])
+
+  useEffect(() => {
+    console.log("Setting up Firebase auth state listener...")
+
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      console.log(
+        "Firebase auth state changed:",
+        firebaseUser ? `User logged in: ${firebaseUser.email}` : "User logged out"
+      )
+      
+      setUser(firebaseUser)
+      setLoading(false)
+
+      // Cache auth state
+      try {
+        if (firebaseUser) {
+          console.log("Caching authenticated user state")
+          await AsyncStorage.setItem(AUTH_STATE_KEY, 'authenticated')
+          // Store minimal user data to avoid serialization issues
+          const userData = {
+            uid: firebaseUser.uid,
+            email: firebaseUser.email,
+            emailVerified: firebaseUser.emailVerified,
+            displayName: firebaseUser.displayName,
+            photoURL: firebaseUser.photoURL,
+          }
+          await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(userData))
+        } else {
+          console.log("Clearing cached auth state")
+          await AsyncStorage.removeItem(AUTH_STATE_KEY)
+          await AsyncStorage.removeItem(AUTH_USER_KEY)
+        }
+      } catch (error) {
+        console.log('Error caching auth state:', error)
+      }
+    })
+
+    return () => {
+      unsubscribe()
+    }
   }, [])
 
   const signIn = async (email: string, password: string) => {
-    const usersJson = await AsyncStorage.getItem('users')
-    const users = usersJson ? JSON.parse(usersJson) : {}
-
-    if (users[email] && users[email].password === password) {
-      await AsyncStorage.setItem('currentUser', email)
-      setUser(email)
-    } else {
-      throw new Error('Invalid credentials')
-    }
+    await firebaseSignIn(email, password)
   }
 
   const signUp = async (email: string, password: string) => {
-    const usersJson = await AsyncStorage.getItem('users')
-    const users = usersJson ? JSON.parse(usersJson) : {}
-
-    if (users[email]) {
-      throw new Error('User already exists')
-    }
-
-    users[email] = { password }
-    await AsyncStorage.setItem('users', JSON.stringify(users))
-    await AsyncStorage.setItem('currentUser', email)
-    setUser(email)
+    await firebaseSignUp(email, password)
   }
 
   const signOut = async () => {
-    await AsyncStorage.removeItem('currentUser')
-    setUser(null)
+    await firebaseSignOut()
   }
 
   return (

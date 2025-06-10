@@ -1,5 +1,5 @@
 // MyFitApp/screens/AddProductScreen.tsx
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   View,
   Text,
@@ -8,42 +8,84 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
-  Modal,
-  FlatList,
-  TouchableWithoutFeedback,
   StyleSheet,
 } from 'react-native'
-import AsyncStorage from '@react-native-async-storage/async-storage'
+import { addEntry, updateEntry, recalculateMealTypesForDate } from '../services/firebaseService'
+import type { Entry } from '../services/firebaseService'
 import { useTheme } from '../navigation/ThemeContext'
 import styles from '../styles/styles'
 import { NativeStackScreenProps } from '@react-navigation/native-stack'
+import DatePickerModal from '../components/DatePickerModal'
+import TimePickerModal from '../components/TimePickerModal'
 
 type RootStackParamList = {
   Login: undefined
   Register: undefined
   Home: undefined
-  AddProduct: undefined
+  AddProduct: { entry?: Entry; suggestedDateTime?: string; targetMealType?: string; addToExistingMeal?: boolean }
+  ProductInfo: { entry: Entry }
 }
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AddProduct'>
 
-// Опции для выбора приёма пищи
-const MEAL_OPTIONS: {
-  label: string
-  value: 'breakfast' | 'lunch' | 'dinner' | 'snack'
-}[] = [
-  { label: 'Breakfast', value: 'breakfast' },
-  { label: 'Lunch',     value: 'lunch'     },
-  { label: 'Dinner',    value: 'dinner'    },
-  { label: 'Snack',     value: 'snack'     },
-]
+// Note: Meal types are now assigned automatically based on time
 
-export default function AddProductScreen({ navigation }: Props) {
+export default function AddProductScreen({ navigation, route }: Props) {
   const { theme } = useTheme()
-  const [name, setName] = useState('')
-  const [calories, setCalories] = useState('')
-  const [mealType, setMealType] = useState<'breakfast' | 'lunch' | 'dinner' | 'snack'>('breakfast')
-  const [modalVisible, setModalVisible] = useState(false)
+  const editingEntry = route.params?.entry
+  const suggestedDateTime = route.params?.suggestedDateTime
+  const targetMealType = route.params?.targetMealType
+  const addToExistingMeal = route.params?.addToExistingMeal
+  const isEditing = !!editingEntry
+
+  const [name, setName] = useState(editingEntry?.name || '')
+  const [calories, setCalories] = useState(editingEntry?.calories.toString() || '')
+  
+  // Initialize date and time based on editing entry or suggested values
+  const [selectedDate, setSelectedDate] = useState(() => {
+    if (editingEntry) {
+      return new Date(editingEntry.dateTime)
+    }
+    if (suggestedDateTime) {
+      return new Date(suggestedDateTime)
+    }
+    return new Date()
+  })
+  
+  const [selectedTime, setSelectedTime] = useState(() => {
+    if (editingEntry) {
+      const date = new Date(editingEntry.dateTime)
+      return { hour: date.getHours(), minute: date.getMinutes() }
+    }
+    if (suggestedDateTime) {
+      const date = new Date(suggestedDateTime)
+      return { hour: date.getHours(), minute: date.getMinutes() }
+    }
+    // Default to current time
+    const now = new Date()
+    return { hour: now.getHours(), minute: now.getMinutes() }
+  })
+
+  // Update initial values when route params change
+  useEffect(() => {
+    if (editingEntry) {
+      const entryDate = new Date(editingEntry.dateTime)
+      setSelectedDate(entryDate)
+      setSelectedTime({ 
+        hour: entryDate.getHours(), 
+        minute: entryDate.getMinutes() 
+      })
+    } else if (suggestedDateTime) {
+      const suggestedDate = new Date(suggestedDateTime)
+      setSelectedDate(suggestedDate)
+      setSelectedTime({ 
+        hour: suggestedDate.getHours(), 
+        minute: suggestedDate.getMinutes() 
+      })
+    }
+  }, [editingEntry, suggestedDateTime])
+  const [datePickerVisible, setDatePickerVisible] = useState(false)
+  const [timePickerVisible, setTimePickerVisible] = useState(false)
 
   const onSavePress = async () => {
     if (!name.trim() || !calories.trim()) {
@@ -57,31 +99,35 @@ export default function AddProductScreen({ navigation }: Props) {
     }
 
     try {
-      const currentUser = await AsyncStorage.getItem('currentUser')
-      if (!currentUser) {
-        Alert.alert('Error', 'User not found')
-        return
+      // Combine selected date with selected time
+      const combinedDateTime = new Date(selectedDate)
+      combinedDateTime.setHours(selectedTime.hour, selectedTime.minute, 0, 0)
+
+      if (isEditing && editingEntry?.id) {
+        const updates = {
+          name: name.trim(),
+          mealType: editingEntry?.mealType || 'breakfast', // Keep existing mealType for editing
+          dateTime: combinedDateTime.toISOString(),
+          calories: calNumber,
+        }
+        await updateEntry(editingEntry.id, updates)
+        // Recalculate meal types for the date after editing
+        await recalculateMealTypesForDate(combinedDateTime)
+      } else {
+        const newEntry = {
+          name: name.trim(),
+          mealType: 'breakfast', // Temporary, will be recalculated
+          dateTime: combinedDateTime.toISOString(),
+          calories: calNumber,
+        }
+        await addEntry(newEntry)
+        // Recalculate meal types for the date after adding
+        await recalculateMealTypesForDate(combinedDateTime)
       }
 
-      const key = `entries_${currentUser}`
-      const existingJson = await AsyncStorage.getItem(key)
-      const existingEntries = existingJson ? JSON.parse(existingJson) : []
-
-      const newEntry = {
-        name: name.trim(),
-        mealType,
-        dateTime: new Date().toISOString(),
-        calories: calNumber,
-      }
-
-      const updatedEntries = [...existingEntries, newEntry]
-      await AsyncStorage.setItem(key, JSON.stringify(updatedEntries))
-
-      Alert.alert('Saved', 'Entry has been saved', [
-        { text: 'OK', onPress: () => navigation.goBack() },
-      ])
+      navigation.navigate('Home')
     } catch (error) {
-      console.warn('Error saving entry:', error)
+      console.error('Error saving entry:', error)
       Alert.alert('Error', 'Failed to save entry')
     }
   }
@@ -90,24 +136,7 @@ export default function AddProductScreen({ navigation }: Props) {
     navigation.goBack()
   }
 
-  const renderOption = ({ item }: { item: typeof MEAL_OPTIONS[number] }) => (
-    <TouchableOpacity
-      style={[
-        localStyles.menuItem,
-        { borderBottomColor: theme.border },
-      ]}
-      onPress={() => {
-        setMealType(item.value)
-        setModalVisible(false)
-      }}
-    >
-      <Text style={[localStyles.menuItemText, { color: theme.textColor }]}>
-        {item.label}
-      </Text>
-    </TouchableOpacity>
-  )
-
-  const currentLabel = MEAL_OPTIONS.find(x => x.value === mealType)?.label || 'Select'
+  // Remove meal type selection components
 
   return (
     <KeyboardAvoidingView
@@ -115,15 +144,15 @@ export default function AddProductScreen({ navigation }: Props) {
       behavior={Platform.select({ ios: 'padding', android: undefined })}
     >
       <Text style={[styles.title, { color: theme.textColor }]}>
-        Add Meal Entry
+        {isEditing ? 'Edit Meal Entry' : 'Add Meal Entry'}
       </Text>
 
-      {/* Meal Type */}
+      {/* Date */}
       <Text style={[styles.addLabel, { color: theme.textColor, marginTop: 16 }]}>
-        Meal Type
+        Date
       </Text>
       <TouchableOpacity
-        onPress={() => setModalVisible(true)}
+        onPress={() => setDatePickerVisible(true)}
         style={[
           styles.pickerContainer,
           {
@@ -137,10 +166,59 @@ export default function AddProductScreen({ navigation }: Props) {
         ]}
       >
         <Text style={{ color: theme.textColor, fontSize: 16 }}>
-          {currentLabel}
+          {selectedDate.toLocaleDateString()}
         </Text>
-        <Text style={{ color: theme.textSecondary, fontSize: 20 }}>▾</Text>
+        <Text style={{ color: theme.textSecondary, fontSize: 20 }}>📅</Text>
       </TouchableOpacity>
+
+      {/* Time */}
+      <Text style={[styles.addLabel, { color: theme.textColor, marginTop: 16 }]}>
+        Time
+      </Text>
+      <TouchableOpacity
+        onPress={() => setTimePickerVisible(true)}
+        style={[
+          styles.pickerContainer,
+          {
+            borderColor: theme.border,
+            backgroundColor: theme.cardBackground,
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            paddingHorizontal: 12,
+          },
+        ]}
+      >
+        <Text style={{ color: theme.textColor, fontSize: 16 }}>
+          {`${selectedTime.hour.toString().padStart(2, '0')}:${selectedTime.minute.toString().padStart(2, '0')}`}
+        </Text>
+        <Text style={{ color: theme.textSecondary, fontSize: 20 }}>🕐</Text>
+      </TouchableOpacity>
+
+      {/* Meal Type Assignment Info */}
+      <Text style={[styles.addLabel, { color: theme.textColor, marginTop: 16 }]}>
+        Meal Type
+      </Text>
+      <View
+        style={[
+          styles.pickerContainer,
+          {
+            borderColor: theme.border,
+            backgroundColor: theme.cardBackground,
+            paddingHorizontal: 12,
+            paddingVertical: 12,
+          },
+        ]}
+      >
+        <Text style={{ color: theme.textSecondary, fontSize: 14, fontStyle: 'italic' }}>
+          {addToExistingMeal && targetMealType
+            ? `Adding to existing ${targetMealType} meal`
+            : targetMealType 
+            ? `Creating new ${targetMealType} meal. Time can be adjusted.`
+            : 'Meal type will be assigned automatically based on time'
+          }
+        </Text>
+      </View>
 
       {/* Food Name */}
       <Text style={[styles.addLabel, { color: theme.textColor, marginTop: 16 }]}>
@@ -193,71 +271,37 @@ export default function AddProductScreen({ navigation }: Props) {
           style={[styles.loginButton, { flex: 1, marginRight: 8 }]}
           onPress={onSavePress}
         >
-          <Text style={styles.loginButtonText}>Save Entry</Text>
+          <Text style={styles.loginButtonText}>{isEditing ? 'Update Entry' : 'Save Entry'}</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Modal for Meal Type options */}
-      <Modal
-        transparent
-        animationType="fade"
-        visible={modalVisible}
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <TouchableWithoutFeedback onPress={() => setModalVisible(false)}>
-          <View style={localStyles.overlay} />
-        </TouchableWithoutFeedback>
+      {/* Date Picker Modal */}
+      <DatePickerModal
+        isVisible={datePickerVisible}
+        onClose={() => setDatePickerVisible(false)}
+        selectedDate={selectedDate}
+        onDateSelect={setSelectedDate}
+      />
 
-        <View
-          style={[
-            localStyles.modalContainer,
-            { backgroundColor: theme.cardBackground },
-          ]}
-        >
-          <FlatList
-            data={MEAL_OPTIONS}
-            renderItem={renderOption}
-            keyExtractor={item => item.value}
-          />
-        </View>
-      </Modal>
+      {/* Time Picker Modal */}
+      <TimePickerModal
+        isVisible={timePickerVisible}
+        onClose={() => setTimePickerVisible(false)}
+        selectedTime={selectedTime}
+        onTimeSelect={setSelectedTime}
+      />
+
+      {/* Meal type selection modal removed */}
     </KeyboardAvoidingView>
   )
 }
 
 const localStyles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: '#000',
-    opacity: 0.6,
-  },
-  modalContainer: {
-    position: 'absolute',
-    top: '25%',
-    left: '10%',
-    width: '80%',
-    borderRadius: 8,
-    maxHeight: '50%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  menuItem: {
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    borderBottomWidth: 1,
-  },
-  menuItemText: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
   buttonRow: {
     flexDirection: 'row',
     marginTop: 32,
   },
   cancelButton: {
-    backgroundColor: '#888', // серый фон для кнопки Cancel
+    backgroundColor: '#888', // gray background for Cancel button
   },
 })

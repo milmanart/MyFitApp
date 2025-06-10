@@ -45,15 +45,15 @@ export default {
   // HomeScreen Header
   headerContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between', // Кнопка слева, заголовок по центру, заглушка справа
+    justifyContent: 'space-between', // Button on left, title in center, placeholder on right
     alignItems: 'center',
     marginBottom: 32,
-    paddingHorizontal: 0, // Убираем горизонтальные отступы
-    marginTop: 16,       // Немного опускаем весь заголовок вниз
+    paddingHorizontal: 0, // Remove horizontal padding
+    marginTop: 16,       // Move entire header down slightly
   },
   sidebarButton: {
     paddingVertical: 8,
-    paddingHorizontal: 0, // Убираем отступы, чтобы кнопка была в самом краю
+    paddingHorizontal: 0, // Remove padding so button is at the very edge
     marginLeft: 0,
   },
   sidebarButtonText: {
@@ -65,7 +65,7 @@ export default {
     textAlign: 'center',
   },
   headerPlaceholder: {
-    width: 40, // Заглушка по ширине кнопки + небольшие отступы
+    width: 40, // Placeholder width of button + small padding
   },
 
   // Date Picker
@@ -293,5 +293,13 @@ export default {
     borderRadius: 8,
     marginBottom: 16,
     overflow: 'hidden',
+  },
+
+  // Section Title
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    marginBottom: 12,
+    marginTop: 8,
   },
 }

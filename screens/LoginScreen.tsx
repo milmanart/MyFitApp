@@ -8,7 +8,7 @@ import {
   Alert,
 } from 'react-native'
 
-// Импортируем из navigation вместо components
+// Import from navigation instead of components
 import { AuthContext } from '../navigation/AuthContext'
 import { useTheme } from '../navigation/ThemeContext'
 import styles from '../styles/styles'
@@ -18,7 +18,8 @@ type RootStackParamList = {
   Login: undefined
   Register: undefined
   Home: undefined
-  AddProduct: undefined
+  AddProduct: { entry?: any; suggestedDateTime?: string; targetMealType?: string; addToExistingMeal?: boolean }
+  ProductInfo: { entry: any }
 }
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Login'>
@@ -31,20 +32,20 @@ export default function LoginScreen({ navigation }: Props) {
 
   const handleLogin = async () => {
     if (!email.trim() || !password) {
-      Alert.alert('Błąd', 'Proszę wypełnić wszystkie pola')
+      Alert.alert('Error', 'Please fill in all fields')
       return
     }
     try {
       await signIn(email.trim(), password)
-      navigation.replace('Home')
+      // Navigation will happen automatically via AuthContext state change
     } catch (e: any) {
-      Alert.alert('Błąd logowania', e.message)
+      Alert.alert('Login Error', e.message)
     }
   }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
-      <Text style={[styles.loginTitle, { marginBottom: 20, color: theme.textColor }]}>Logowanie</Text>
+      <Text style={[styles.loginTitle, { marginBottom: 20, color: theme.textColor }]}>Login</Text>
       <View style={styles.loginForm}>
         <TextInput
           style={[
@@ -71,21 +72,21 @@ export default function LoginScreen({ navigation }: Props) {
               color: theme.textColor 
             }
           ]}
-          placeholder="Hasło"
+          placeholder="Password"
           placeholderTextColor={theme.textSecondary}
           secureTextEntry
           value={password}
           onChangeText={setPassword}
         />
         <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-          <Text style={styles.loginButtonText}>Zaloguj się</Text>
+          <Text style={styles.loginButtonText}>Sign In</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={{ marginTop: 16 }}
           onPress={() => navigation.navigate('Register')}
         >
           <Text style={[styles.linkText, { color: theme.primary }]}>
-            Nie masz konta? <Text style={{ fontWeight: 'bold' }}>Zarejestruj się</Text>
+            Don't have an account? <Text style={{ fontWeight: 'bold' }}>Sign Up</Text>
           </Text>
         </TouchableOpacity>
       </View>

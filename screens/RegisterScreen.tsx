@@ -8,7 +8,7 @@ import {
   Alert,
 } from 'react-native'
 
-// Импортируем из navigation вместо components
+// Import from navigation instead of components
 import { AuthContext } from '../navigation/AuthContext'
 import { useTheme } from '../navigation/ThemeContext'
 import styles from '../styles/styles'
@@ -18,7 +18,8 @@ type RootStackParamList = {
   Login: undefined
   Register: undefined
   Home: undefined
-  AddProduct: undefined
+  AddProduct: { entry?: any; suggestedDateTime?: string; targetMealType?: string; addToExistingMeal?: boolean }
+  ProductInfo: { entry: any }
 }
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Register'>
@@ -31,20 +32,20 @@ export default function RegisterScreen({ navigation }: Props) {
 
   const handleRegister = async () => {
     if (!email.trim() || !password) {
-      Alert.alert('Błąd', 'Proszę wypełnić wszystkie pola')
+      Alert.alert('Error', 'Please fill in all fields')
       return
     }
     try {
       await signUp(email.trim(), password)
-      navigation.replace('Home')
+      // Navigation will happen automatically via AuthContext state change
     } catch (e: any) {
-      Alert.alert('Błąd rejestracji', e.message)
+      Alert.alert('Registration Error', e.message)
     }
   }
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
-      <Text style={[styles.loginTitle, { marginBottom: 20, color: theme.textColor }]}>Rejestracja</Text>
+      <Text style={[styles.loginTitle, { marginBottom: 20, color: theme.textColor }]}>Register</Text>
       <View style={styles.loginForm}>
         <TextInput
           style={[
@@ -71,21 +72,21 @@ export default function RegisterScreen({ navigation }: Props) {
               color: theme.textColor 
             }
           ]}
-          placeholder="Hasło"
+          placeholder="Password"
           placeholderTextColor={theme.textSecondary}
           secureTextEntry
           value={password}
           onChangeText={setPassword}
         />
         <TouchableOpacity style={styles.loginButton} onPress={handleRegister}>
-          <Text style={styles.loginButtonText}>Zarejestruj się</Text>
+          <Text style={styles.loginButtonText}>Sign Up</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={{ marginTop: 16 }}
           onPress={() => navigation.navigate('Login')}
         >
           <Text style={[styles.linkText, { color: theme.primary }]}>
-            Masz już konto? <Text style={{ fontWeight: 'bold' }}>Zaloguj się</Text>
+            Already have an account? <Text style={{ fontWeight: 'bold' }}>Sign In</Text>
           </Text>
         </TouchableOpacity>
       </View>

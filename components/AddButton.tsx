@@ -27,8 +27,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#3478f6',
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 5, // тень для Android
-    shadowColor: '#000', // тень для iOS
+    elevation: 5, // shadow for Android
+    shadowColor: '#000', // shadow for iOS
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
