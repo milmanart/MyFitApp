@@ -9,17 +9,21 @@ import {
   StyleSheet,
 } from 'react-native'
 import { useTheme } from '../navigation/ThemeContext'
+import { User } from 'firebase/auth'
 
 interface SidebarProps {
   isVisible: boolean
   onClose: () => void
   onLogout: () => void
+  onTrashPress: () => void
+  onProfilePress: () => void
+  user: User | null
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 const SIDEBAR_WIDTH = SCREEN_WIDTH * 0.8
 
-export default function Sidebar({ isVisible, onClose, onLogout }: SidebarProps) {
+export default function Sidebar({ isVisible, onClose, onLogout, onTrashPress, onProfilePress, user }: SidebarProps) {
   const { isDarkMode, toggleTheme, theme } = useTheme()
   const slideAnim = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current
   const overlayOpacity = useRef(new Animated.Value(0)).current
@@ -78,30 +82,66 @@ export default function Sidebar({ isVisible, onClose, onLogout }: SidebarProps) 
         ]}
       >
         <View style={styles.header}>
-          <Text style={[styles.headerText, { color: theme.textColor }]}>
-            Menu
-          </Text>
+          {user && (
+            <TouchableOpacity
+              style={styles.userInfo}
+              onPress={() => {
+                onProfilePress()
+                onClose()
+              }}
+            >
+              <View style={[styles.avatar, { backgroundColor: theme.primary }]}>
+                <Text style={styles.avatarText}>
+                  {(user.displayName || user.email || 'U').charAt(0).toUpperCase()}
+                </Text>
+              </View>
+              <View style={styles.userDetails}>
+                <Text style={[styles.displayName, { color: theme.textColor }]}>
+                  {user.displayName || 'User'}
+                </Text>
+                <Text style={[styles.userEmail, { color: theme.textSecondary }]}>
+                  {user.email}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
         </View>
 
         <View style={styles.content}>
-          <TouchableOpacity
-            style={[styles.menuItem, { borderBottomColor: theme.border }]}
-            onPress={toggleTheme}
-          >
-            <Text style={[styles.menuItemText, { color: theme.textColor }]}>
-              🌙 {isDarkMode ? 'Light Mode' : 'Dark Mode'}
-            </Text>
-          </TouchableOpacity>
+          <View style={styles.menuItems}>
+            <TouchableOpacity
+              style={[styles.menuItem, { borderBottomColor: theme.border }]}
+              onPress={toggleTheme}
+            >
+              <Text style={[styles.menuItemText, { color: theme.textColor }]}>
+                🌙 {isDarkMode ? 'Light Mode' : 'Dark Mode'}
+              </Text>
+            </TouchableOpacity>
 
+            <TouchableOpacity
+              style={[styles.menuItem, { borderBottomColor: theme.border }]}
+              onPress={() => {
+                onTrashPress()
+                onClose()
+              }}
+            >
+              <Text style={[styles.menuItemText, { color: theme.textColor }]}>
+                🗑️ Trash
+              </Text>
+            </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.menuItem, { borderBottomColor: theme.border }]}
-            onPress={onLogout}
-          >
-            <Text style={[styles.menuItemText, { color: '#e53935' }]}>
-              🚪 Sign Out
-            </Text>
-          </TouchableOpacity>
+          </View>
+
+          <View style={styles.bottomSection}>
+            <TouchableOpacity
+              style={styles.logoutButton}
+              onPress={onLogout}
+            >
+              <Text style={[styles.menuItemText, { color: '#e53935' }]}>
+                🚪 Sign Out
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </Animated.View>
     </View>
@@ -147,13 +187,48 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
-  headerText: {
-    fontSize: 24,
+  userInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  avatarText: {
+    color: 'white',
+    fontSize: 20,
     fontWeight: 'bold',
+  },
+  userDetails: {
+    flex: 1,
+  },
+  displayName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 2,
+  },
+  userEmail: {
+    fontSize: 14,
   },
   content: {
     flex: 1,
     paddingTop: 20,
+    justifyContent: 'space-between',
+  },
+  menuItems: {
+    flex: 1,
+  },
+  bottomSection: {
+    paddingBottom: 20,
+  },
+  logoutButton: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
   },
   menuItem: {
     paddingHorizontal: 20,

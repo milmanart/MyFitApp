@@ -8,10 +8,14 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useFocusEffect } from '@react-navigation/native'
-import { getEntriesForDate, recalculateMealTypesForDate } from '../services/firebaseService'
+import { getEntriesForDate, recalculateMealTypesForDate, deleteEntry } from '../services/firebaseService'
 import type { Entry } from '../services/firebaseService'
 import { assignMealTypes, getMealTypeLabel } from '../utils/mealTypeUtils'
+import { lightHaptic, selectionHaptic } from '../utils/hapticUtils'
+import { handleNetworkError, withRetry } from '../utils/errorUtils'
+import { useNetwork } from '../utils/networkUtils'
 
 // Import authentication context and theme
 import { AuthContext } from '../navigation/AuthContext'
@@ -21,6 +25,7 @@ import { useTheme } from '../navigation/ThemeContext'
 import AddButton from '../components/AddButton'
 import Sidebar from '../components/Sidebar'
 import DatePickerModal from '../components/DatePickerModal'
+import SwipeableCard from '../components/SwipeableCard'
 
 // Import styles
 import styles from '../styles/styles'
@@ -32,6 +37,8 @@ type RootStackParamList = {
   Home: undefined
   AddProduct: { entry?: Entry; suggestedDateTime?: string; targetMealType?: string; addToExistingMeal?: boolean }
   ProductInfo: { entry: Entry }
+  Profile: undefined
+  Trash: undefined
 }
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Home'>
@@ -39,6 +46,8 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Home'>
 export default function HomeScreen({ navigation }: Props) {
   const { signOut, user } = useContext(AuthContext)
   const { theme } = useTheme()
+  const { isConnected } = useNetwork()
+  const insets = useSafeAreaInsets()
   const [entries, setEntries] = useState<Entry[]>([])
   const [loading, setLoading] = useState(true)
   const [sidebarVisible, setSidebarVisible] = useState(false)
@@ -65,11 +74,12 @@ export default function HomeScreen({ navigation }: Props) {
     
     setLoading(true)
     try {
-      const entriesData = await getEntriesForDate(selectedDate)
+      // Use retry mechanism for data fetching
+      const entriesData = await withRetry(() => getEntriesForDate(selectedDate))
       setEntries(entriesData)
     } catch (error) {
       console.error('Error fetching entries:', error)
-      Alert.alert('Error', 'Failed to fetch entries')
+      await handleNetworkError(error, 'Failed to load your entries')
       setEntries([])
     } finally {
       setLoading(false)
@@ -85,13 +95,15 @@ export default function HomeScreen({ navigation }: Props) {
   )
 
   // Functions for date navigation
-  const goToPreviousDay = () => {
+  const goToPreviousDay = async () => {
+    await selectionHaptic() // Vibrate on date navigation
     const newDate = new Date(selectedDate)
     newDate.setDate(newDate.getDate() - 1)
     setSelectedDate(newDate)
   }
 
-  const goToNextDay = () => {
+  const goToNextDay = async () => {
+    await selectionHaptic() // Vibrate on date navigation
     const newDate = new Date(selectedDate)
     newDate.setDate(newDate.getDate() + 1)
     setSelectedDate(newDate)
@@ -122,34 +134,36 @@ export default function HomeScreen({ navigation }: Props) {
   const mealOrder = ['breakfast', 'snack', 'lunch', 'dinner']
   const availableMealTypes = mealOrder.filter(mealType => groupedEntries[mealType] && groupedEntries[mealType].length > 0)
 
-  // Render single card
-  const renderItem = ({ item }: { item: Entry }) => {
-    const dt = new Date(item.dateTime)
-    const timeString = dt.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-    })
-    const dateString = dt.toLocaleDateString('en-US', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-    })
+  // Handle entry deletion
+  const handleDeleteEntry = async (entryId: string) => {
+    try {
+      // Optimistically remove from UI immediately
+      setEntries(prevEntries => prevEntries.filter(entry => entry.id !== entryId))
+      
+      // Then perform the actual deletion
+      await deleteEntry(entryId)
+    } catch (error) {
+      console.error('Error deleting entry:', error)
+      Alert.alert('Error', 'Failed to delete entry')
+      // Reload entries on error to restore state
+      fetchEntries()
+    }
+  }
 
+  // Handle entry editing
+  const handleEditEntry = (entry: Entry) => {
+    navigation.navigate('AddProduct', { entry })
+  }
+
+  // Render single card with swipe functionality
+  const renderItem = ({ item }: { item: Entry }) => {
     return (
-      <TouchableOpacity
-        style={[styles.card, { backgroundColor: theme.cardBackground }]}
+      <SwipeableCard
+        item={item}
         onPress={() => navigation.navigate('ProductInfo', { entry: item })}
-      >
-        <Text style={[styles.productName, { color: theme.textColor }]}>
-          {item.name}
-        </Text>
-        <Text style={[styles.dateTime, { color: theme.textSecondary }]}>
-          {`${dateString} at ${timeString}`}
-        </Text>
-        <Text style={[styles.calories, { color: '#e53935' }]}>
-          {item.calories} kcal
-        </Text>
-      </TouchableOpacity>
+        onEdit={() => handleEditEntry(item)}
+        onDelete={() => handleDeleteEntry(item.id!)}
+      />
     )
   }
 
@@ -272,10 +286,13 @@ export default function HomeScreen({ navigation }: Props) {
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
       {/* HEADER */}
-      <View style={styles.headerContainer}>
+      <View style={[styles.headerContainer, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity
           style={styles.sidebarButton}
-          onPress={() => setSidebarVisible(true)}
+          onPress={async () => {
+            await lightHaptic() // Vibrate when opening sidebar
+            setSidebarVisible(true)
+          }}
         >
           <Text style={[styles.sidebarButtonText, { color: theme.textColor }]}>
             ☰
@@ -293,7 +310,10 @@ export default function HomeScreen({ navigation }: Props) {
             </Text>
           </TouchableOpacity>
           
-          <TouchableOpacity onPress={() => setDatePickerVisible(true)}>
+          <TouchableOpacity onPress={async () => {
+            await lightHaptic() // Vibrate when opening date picker
+            setDatePickerVisible(true)
+          }}>
             <Text style={[styles.dateText, { color: theme.textColor }]}>
               {formatSelectedDate(selectedDate)}
             </Text>
@@ -309,8 +329,34 @@ export default function HomeScreen({ navigation }: Props) {
           </TouchableOpacity>
         </View>
         
-        <View style={styles.headerPlaceholder} />
+        <TouchableOpacity
+          style={styles.profileButton}
+          onPress={async () => {
+            await lightHaptic() // Vibrate when opening profile
+            navigation.navigate('Profile')
+          }}
+        >
+          <Text style={styles.profileButtonText}>👤</Text>
+        </TouchableOpacity>
       </View>
+
+      {/* NETWORK STATUS INDICATOR */}
+      {!isConnected && (
+        <View style={{
+          backgroundColor: '#ff9800',
+          paddingVertical: 8,
+          paddingHorizontal: 16,
+          alignItems: 'center',
+        }}>
+          <Text style={{
+            color: '#fff',
+            fontSize: 14,
+            fontWeight: '500',
+          }}>
+            📶 No internet connection - some features may be limited
+          </Text>
+        </View>
+      )}
 
       {/* DAILY TOTAL CALORIES */}
       {entriesWithCorrectTypes.length > 0 && (
@@ -359,6 +405,9 @@ export default function HomeScreen({ navigation }: Props) {
         isVisible={sidebarVisible}
         onClose={() => setSidebarVisible(false)}
         onLogout={handleLogout}
+        onTrashPress={() => navigation.navigate('Trash')}
+        onProfilePress={() => navigation.navigate('Profile')}
+        user={user}
       />
 
       {/* DATE PICKER MODAL */}

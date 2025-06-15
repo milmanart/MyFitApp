@@ -13,6 +13,8 @@ import {
 import { addEntry, updateEntry, recalculateMealTypesForDate } from '../services/firebaseService'
 import type { Entry } from '../services/firebaseService'
 import { useTheme } from '../navigation/ThemeContext'
+import { successHaptic, lightHaptic } from '../utils/hapticUtils'
+import { showValidationError, handleNetworkError, withRetry, showSuccess } from '../utils/errorUtils'
 import styles from '../styles/styles'
 import { NativeStackScreenProps } from '@react-navigation/native-stack'
 import DatePickerModal from '../components/DatePickerModal'
@@ -89,12 +91,12 @@ export default function AddProductScreen({ navigation, route }: Props) {
 
   const onSavePress = async () => {
     if (!name.trim() || !calories.trim()) {
-      Alert.alert('Error', 'Please fill in all fields')
+      await showValidationError('Please fill in all fields')
       return
     }
     const calNumber = Number(calories)
     if (isNaN(calNumber) || calNumber <= 0) {
-      Alert.alert('Error', 'Calories must be a positive number')
+      await showValidationError('Calories must be a positive number')
       return
     }
 
@@ -103,36 +105,40 @@ export default function AddProductScreen({ navigation, route }: Props) {
       const combinedDateTime = new Date(selectedDate)
       combinedDateTime.setHours(selectedTime.hour, selectedTime.minute, 0, 0)
 
-      if (isEditing && editingEntry?.id) {
-        const updates = {
-          name: name.trim(),
-          mealType: editingEntry?.mealType || 'breakfast', // Keep existing mealType for editing
-          dateTime: combinedDateTime.toISOString(),
-          calories: calNumber,
+      // Use retry mechanism for critical save operations
+      await withRetry(async () => {
+        if (isEditing && editingEntry?.id) {
+          const updates = {
+            name: name.trim(),
+            mealType: editingEntry?.mealType || 'breakfast',
+            dateTime: combinedDateTime.toISOString(),
+            calories: calNumber,
+          }
+          await updateEntry(editingEntry.id, updates)
+          await recalculateMealTypesForDate(combinedDateTime)
+        } else {
+          const newEntry = {
+            name: name.trim(),
+            mealType: 'breakfast',
+            dateTime: combinedDateTime.toISOString(),
+            calories: calNumber,
+          }
+          await addEntry(newEntry)
+          await recalculateMealTypesForDate(combinedDateTime)
         }
-        await updateEntry(editingEntry.id, updates)
-        // Recalculate meal types for the date after editing
-        await recalculateMealTypesForDate(combinedDateTime)
-      } else {
-        const newEntry = {
-          name: name.trim(),
-          mealType: 'breakfast', // Temporary, will be recalculated
-          dateTime: combinedDateTime.toISOString(),
-          calories: calNumber,
-        }
-        await addEntry(newEntry)
-        // Recalculate meal types for the date after adding
-        await recalculateMealTypesForDate(combinedDateTime)
-      }
+      })
 
+      await successHaptic()
+      showSuccess(isEditing ? 'Entry updated successfully' : 'Entry saved successfully')
       navigation.navigate('Home')
     } catch (error) {
       console.error('Error saving entry:', error)
-      Alert.alert('Error', 'Failed to save entry')
+      await handleNetworkError(error, 'Failed to save entry. Please try again.')
     }
   }
 
-  const onCancelPress = () => {
+  const onCancelPress = async () => {
+    await lightHaptic() // Light vibration for cancel
     navigation.goBack()
   }
 

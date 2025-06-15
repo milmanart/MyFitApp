@@ -41,7 +41,7 @@ export default function TimePickerModal({
       setTempTime(date)
       
       if (Platform.OS === 'android') {
-        // На Android показываем нативный picker сразу
+        // On Android, show the native picker immediately
         setShowNativePicker(true)
       }
     } else {
@@ -61,7 +61,7 @@ export default function TimePickerModal({
     if (selectedDate) {
       setTempTime(selectedDate)
       if (Platform.OS === 'android') {
-        // На Android сразу применяем изменения
+        // On Android, apply changes immediately
         onTimeSelect({
           hour: selectedDate.getHours(),
           minute: selectedDate.getMinutes()
@@ -79,7 +79,7 @@ export default function TimePickerModal({
     onClose()
   }
 
-  // Для iOS показываем кастомный интерфейс с нативным picker
+  // For iOS, show custom interface with native picker
   if (Platform.OS === 'ios') {
     return (
       <Modal
@@ -126,7 +126,7 @@ export default function TimePickerModal({
     )
   }
 
-  // Для Android используем нативный Material Design picker
+  // For Android, use native Material Design picker
   if (Platform.OS === 'android' && showNativePicker) {
     return (
       <DateTimePicker
@@ -139,7 +139,7 @@ export default function TimePickerModal({
     )
   }
 
-  // Fallback для других платформ или когда picker скрыт
+  // Fallback for other platforms or when picker is hidden
   return null
 }
 

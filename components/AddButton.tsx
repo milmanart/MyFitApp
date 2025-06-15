@@ -2,6 +2,7 @@
 import React from 'react'
 import { TouchableOpacity, StyleSheet, ViewStyle } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import { mediumHaptic } from '../utils/hapticUtils'
 
 interface AddButtonProps {
   onPress: () => void
@@ -9,8 +10,13 @@ interface AddButtonProps {
 }
 
 export default function AddButton({ onPress, style }: AddButtonProps) {
+  const handlePress = async () => {
+    await mediumHaptic() // Vibrate on press
+    onPress()
+  }
+
   return (
-    <TouchableOpacity style={[styles.fab, style]} onPress={onPress}>
+    <TouchableOpacity style={[styles.fab, style]} onPress={handlePress}>
       <Ionicons name="add" size={32} color="#fff" />
     </TouchableOpacity>
   )

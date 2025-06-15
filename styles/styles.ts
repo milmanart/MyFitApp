@@ -59,6 +59,22 @@ export default {
   sidebarButtonText: {
     fontSize: 24,
   },
+  profileButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#f0f0f0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  profileButtonText: {
+    fontSize: 20,
+  },
   title: {
     fontSize: 28,
     fontWeight: '600',
@@ -301,5 +317,38 @@ export default {
     fontWeight: '600',
     marginBottom: 12,
     marginTop: 8,
+  },
+
+  // Swipeable Card
+  swipeBackground: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    flexDirection: 'row',
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  swipeAction: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  swipeActionLeft: {
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    paddingLeft: 20,
+  },
+  swipeActionRight: {
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+    paddingRight: 20,
+  },
+  swipeActionText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 }

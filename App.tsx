@@ -8,15 +8,20 @@ import "./firebase"
 import { NavigationContainer } from "@react-navigation/native"
 import { createStackNavigator } from "@react-navigation/stack"
 import { View, ActivityIndicator } from "react-native"
+import { SafeAreaProvider } from 'react-native-safe-area-context'
+import Toast from 'react-native-toast-message'
 
 import { AuthProvider, AuthContext } from "./navigation/AuthContext"
 import { ThemeProvider, useTheme } from "./navigation/ThemeContext"
+import ErrorBoundary from "./components/ErrorBoundary"
 
 import LoginScreen from "./screens/LoginScreen"
 import RegisterScreen from "./screens/RegisterScreen"
 import HomeScreen from "./screens/HomeScreen"
 import AddProductScreen from "./screens/AddProductScreen"
 import ProductInfoScreen from "./screens/ProductInfoScreen"
+import ProfileScreen from "./screens/ProfileScreen"
+import TrashScreen from "./screens/TrashScreen"
 import type { Entry } from "./services/firebaseService"
 
 export type RootStackParamList = {
@@ -25,6 +30,8 @@ export type RootStackParamList = {
   Home: undefined
   AddProduct: { entry?: Entry; suggestedDateTime?: string; targetMealType?: string; addToExistingMeal?: boolean }
   ProductInfo: { entry: Entry }
+  Profile: undefined
+  Trash: undefined
 }
 
 const Stack = createStackNavigator<RootStackParamList>()
@@ -65,6 +72,8 @@ function AppNavigator() {
             <Stack.Screen name="Home" component={HomeScreen} />
             <Stack.Screen name="AddProduct" component={AddProductScreen} />
             <Stack.Screen name="ProductInfo" component={ProductInfoScreen} />
+            <Stack.Screen name="Profile" component={ProfileScreen} />
+            <Stack.Screen name="Trash" component={TrashScreen} />
           </>
         ) : (
           // Unauthenticated user screens
@@ -80,10 +89,15 @@ function AppNavigator() {
 
 export default function App() {
   return (
-    <ThemeProvider>
-      <AuthProvider>
-        <AppNavigator />
-      </AuthProvider>
-    </ThemeProvider>
+    <SafeAreaProvider>
+      <ErrorBoundary>
+        <ThemeProvider>
+          <AuthProvider>
+            <AppNavigator />
+            <Toast />
+          </AuthProvider>
+        </ThemeProvider>
+      </ErrorBoundary>
+    </SafeAreaProvider>
   )
 }

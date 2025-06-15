@@ -111,7 +111,24 @@ export function assignMealTypes(entries: Entry[]): Entry[] {
         }
       }
       if (availableGroups.length > 0) {
-        lunchGroupIndex = availableGroups[Math.floor(availableGroups.length / 2)]
+        if (availableGroups.length > 1) {
+          // Multiple groups between breakfast and dinner - select the one with highest calories for lunch
+          let maxCalories = 0
+          let highestCalorieGroupIndex = availableGroups[0]
+          
+          availableGroups.forEach(groupIndex => {
+            const groupCalories = timeGroups[groupIndex].reduce((sum, entry) => sum + entry.calories, 0)
+            if (groupCalories > maxCalories) {
+              maxCalories = groupCalories
+              highestCalorieGroupIndex = groupIndex
+            }
+          })
+          
+          lunchGroupIndex = highestCalorieGroupIndex
+        } else {
+          // Only one group between breakfast and dinner - it becomes lunch
+          lunchGroupIndex = availableGroups[0]
+        }
       }
     }
     

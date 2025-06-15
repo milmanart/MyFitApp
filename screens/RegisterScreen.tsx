@@ -29,14 +29,15 @@ export default function RegisterScreen({ navigation }: Props) {
   const { theme } = useTheme()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [displayName, setDisplayName] = useState('')
 
   const handleRegister = async () => {
-    if (!email.trim() || !password) {
+    if (!email.trim() || !password || !displayName.trim()) {
       Alert.alert('Error', 'Please fill in all fields')
       return
     }
     try {
-      await signUp(email.trim(), password)
+      await signUp(email.trim(), password, displayName.trim())
       // Navigation will happen automatically via AuthContext state change
     } catch (e: any) {
       Alert.alert('Registration Error', e.message)
@@ -47,6 +48,20 @@ export default function RegisterScreen({ navigation }: Props) {
     <View style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
       <Text style={[styles.loginTitle, { marginBottom: 20, color: theme.textColor }]}>Register</Text>
       <View style={styles.loginForm}>
+        <TextInput
+          style={[
+            styles.loginInput,
+            { 
+              borderColor: theme.border,
+              backgroundColor: theme.cardBackground,
+              color: theme.textColor 
+            }
+          ]}
+          placeholder="Display Name"
+          placeholderTextColor={theme.textSecondary}
+          value={displayName}
+          onChangeText={setDisplayName}
+        />
         <TextInput
           style={[
             styles.loginInput,
