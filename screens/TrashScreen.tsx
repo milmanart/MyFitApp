@@ -8,6 +8,7 @@ import {
   Alert,
   RefreshControl,
   ScrollView,
+  StyleSheet,
 } from 'react-native'
 import { useFocusEffect } from '@react-navigation/native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
@@ -197,25 +198,29 @@ export default function TrashScreen({ navigation }: Props) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
-      {/* HEADER */}
-      <View style={[styles.headerContainer, { paddingTop: insets.top + 8 }]}>
-        <TouchableOpacity
-          style={styles.sidebarButton}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={[styles.sidebarButtonText, { color: theme.textColor }]}>
-            ‹
+      <View style={{
+        paddingTop: insets.top + 16,
+        paddingHorizontal: containerPadding,
+        maxWidth: maxContentWidth,
+        alignSelf: 'center',
+        width: '100%'
+      }}>
+        <View style={localStyles.header}>
+          <TouchableOpacity 
+            style={localStyles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Text style={[localStyles.backButtonText, { color: theme.primary }]}>
+              ← Back
+            </Text>
+          </TouchableOpacity>
+          <Text style={[styles.title, { color: theme.textColor }]}>
+            Trash
           </Text>
-        </TouchableOpacity>
-        
-        <Text style={[styles.title, { color: theme.textColor, flex: 1, textAlign: 'center' }]}>
-          Trash
-        </Text>
-        
-        <View style={styles.headerPlaceholder} />
+          <View style={localStyles.headerSpacer} />
+        </View>
       </View>
 
-      {/* CLEAR BUTTON AND TRASH INFO */}
       {deletedEntries.length > 0 && (
         <View style={{
           paddingHorizontal: containerPadding,
@@ -225,7 +230,8 @@ export default function TrashScreen({ navigation }: Props) {
           backgroundColor: theme.cardBackground,
           maxWidth: maxContentWidth,
           alignSelf: 'center',
-          width: '100%'
+          width: '100%',
+          marginTop: 8
         }}>
           {/* Clear All Button - Full Width */}
           <TouchableOpacity
@@ -266,10 +272,10 @@ export default function TrashScreen({ navigation }: Props) {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              colors={[theme.primary]} // Android
-              tintColor={theme.primary} // iOS
-              title="Refreshing..." // iOS
-              titleColor={theme.textSecondary} // iOS
+              colors={[theme.primary]}
+              tintColor={theme.primary}
+              title="Refreshing..."
+              titleColor={theme.textSecondary}
             />
           }
         >
@@ -299,10 +305,10 @@ export default function TrashScreen({ navigation }: Props) {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              colors={[theme.primary]} // Android
-              tintColor={theme.primary} // iOS
-              title="Refreshing..." // iOS
-              titleColor={theme.textSecondary} // iOS
+              colors={[theme.primary]}
+              tintColor={theme.primary}
+              title="Refreshing..."
+              titleColor={theme.textSecondary}
             />
           }
         />
@@ -310,3 +316,23 @@ export default function TrashScreen({ navigation }: Props) {
     </View>
   )
 }
+
+const localStyles = StyleSheet.create({
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  backButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  backButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
+  headerSpacer: {
+    width: 50,
+  },
+})
