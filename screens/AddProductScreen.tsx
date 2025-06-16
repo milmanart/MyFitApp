@@ -9,8 +9,9 @@ import {
   Platform,
   Alert,
   StyleSheet,
+  ScrollView,
 } from 'react-native'
-import { addEntry, updateEntry, recalculateMealTypesForDate } from '../services/firebaseService'
+import { OfflineDataService } from '../services/offlineDataService'
 import type { Entry } from '../services/firebaseService'
 import { useTheme } from '../navigation/ThemeContext'
 import { successHaptic, lightHaptic } from '../utils/hapticUtils'
@@ -19,6 +20,8 @@ import styles from '../styles/styles'
 import { NativeStackScreenProps } from '@react-navigation/native-stack'
 import DatePickerModal from '../components/DatePickerModal'
 import TimePickerModal from '../components/TimePickerModal'
+import MealTypePickerModal from '../components/MealTypePickerModal'
+import { useResponsiveDimensions } from '../hooks/useResponsiveDimensions'
 
 type RootStackParamList = {
   Login: undefined
@@ -30,10 +33,11 @@ type RootStackParamList = {
 
 type Props = NativeStackScreenProps<RootStackParamList, 'AddProduct'>
 
-// Note: Meal types are now assigned automatically based on time
+import { getMealTypeLabel, type MealType } from '../utils/mealTypeUtils'
 
 export default function AddProductScreen({ navigation, route }: Props) {
   const { theme } = useTheme()
+  const { containerPadding, maxContentWidth, isLandscape } = useResponsiveDimensions()
   const editingEntry = route.params?.entry
   const suggestedDateTime = route.params?.suggestedDateTime
   const targetMealType = route.params?.targetMealType
@@ -42,6 +46,9 @@ export default function AddProductScreen({ navigation, route }: Props) {
 
   const [name, setName] = useState(editingEntry?.name || '')
   const [calories, setCalories] = useState(editingEntry?.calories.toString() || '')
+  const [selectedMealType, setSelectedMealType] = useState<MealType>(
+    editingEntry?.mealType || 'breakfast'
+  )
   
   // Initialize date and time based on editing entry or suggested values
   const [selectedDate, setSelectedDate] = useState(() => {
@@ -88,6 +95,7 @@ export default function AddProductScreen({ navigation, route }: Props) {
   }, [editingEntry, suggestedDateTime])
   const [datePickerVisible, setDatePickerVisible] = useState(false)
   const [timePickerVisible, setTimePickerVisible] = useState(false)
+  const [mealTypePickerVisible, setMealTypePickerVisible] = useState(false)
 
   const onSavePress = async () => {
     if (!name.trim() || !calories.trim()) {
@@ -105,28 +113,24 @@ export default function AddProductScreen({ navigation, route }: Props) {
       const combinedDateTime = new Date(selectedDate)
       combinedDateTime.setHours(selectedTime.hour, selectedTime.minute, 0, 0)
 
-      // Use retry mechanism for critical save operations
-      await withRetry(async () => {
-        if (isEditing && editingEntry?.id) {
-          const updates = {
-            name: name.trim(),
-            mealType: editingEntry?.mealType || 'breakfast',
-            dateTime: combinedDateTime.toISOString(),
-            calories: calNumber,
-          }
-          await updateEntry(editingEntry.id, updates)
-          await recalculateMealTypesForDate(combinedDateTime)
-        } else {
-          const newEntry = {
-            name: name.trim(),
-            mealType: 'breakfast',
-            dateTime: combinedDateTime.toISOString(),
-            calories: calNumber,
-          }
-          await addEntry(newEntry)
-          await recalculateMealTypesForDate(combinedDateTime)
+      // Use offline-capable data service
+      if (isEditing && editingEntry?.id) {
+        const updates = {
+          name: name.trim(),
+          mealType: selectedMealType,
+          dateTime: combinedDateTime.toISOString(),
+          calories: calNumber,
         }
-      })
+        await OfflineDataService.updateEntry(editingEntry.id, updates)
+      } else {
+        const newEntry = {
+          name: name.trim(),
+          mealType: selectedMealType,
+          dateTime: combinedDateTime.toISOString(),
+          calories: calNumber,
+        }
+        await OfflineDataService.addEntry(newEntry)
+      }
 
       await successHaptic()
       showSuccess(isEditing ? 'Entry updated successfully' : 'Entry saved successfully')
@@ -149,12 +153,25 @@ export default function AddProductScreen({ navigation, route }: Props) {
       style={[styles.container, { backgroundColor: theme.backgroundColor }]}
       behavior={Platform.select({ ios: 'padding', android: undefined })}
     >
-      <Text style={[styles.title, { color: theme.textColor }]}>
-        {isEditing ? 'Edit Meal Entry' : 'Add Meal Entry'}
-      </Text>
+      <ScrollView 
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingHorizontal: containerPadding,
+          maxWidth: maxContentWidth,
+          alignSelf: 'center',
+          width: '100%',
+          paddingBottom: 20, // Extra padding at bottom
+        }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={[styles.title, { color: theme.textColor, marginTop: 20 }]}>
+          {isEditing ? 'Edit Meal Entry' : 'Add Meal Entry'}
+        </Text>
 
       {/* Date */}
-      <Text style={[styles.addLabel, { color: theme.textColor, marginTop: 16 }]}>
+      <Text style={[styles.addLabel, { color: theme.textColor, marginTop: isLandscape ? 12 : 16 }]}>
         Date
       </Text>
       <TouchableOpacity
@@ -178,7 +195,7 @@ export default function AddProductScreen({ navigation, route }: Props) {
       </TouchableOpacity>
 
       {/* Time */}
-      <Text style={[styles.addLabel, { color: theme.textColor, marginTop: 16 }]}>
+      <Text style={[styles.addLabel, { color: theme.textColor, marginTop: isLandscape ? 12 : 16 }]}>
         Time
       </Text>
       <TouchableOpacity
@@ -201,33 +218,32 @@ export default function AddProductScreen({ navigation, route }: Props) {
         <Text style={{ color: theme.textSecondary, fontSize: 20 }}>🕐</Text>
       </TouchableOpacity>
 
-      {/* Meal Type Assignment Info */}
-      <Text style={[styles.addLabel, { color: theme.textColor, marginTop: 16 }]}>
+      {/* Meal Type */}
+      <Text style={[styles.addLabel, { color: theme.textColor, marginTop: isLandscape ? 12 : 16 }]}>
         Meal Type
       </Text>
-      <View
+      <TouchableOpacity
+        onPress={() => setMealTypePickerVisible(true)}
         style={[
           styles.pickerContainer,
           {
             borderColor: theme.border,
             backgroundColor: theme.cardBackground,
+            flexDirection: 'row',
+            justifyContent: 'space-between',
+            alignItems: 'center',
             paddingHorizontal: 12,
-            paddingVertical: 12,
           },
         ]}
       >
-        <Text style={{ color: theme.textSecondary, fontSize: 14, fontStyle: 'italic' }}>
-          {addToExistingMeal && targetMealType
-            ? `Adding to existing ${targetMealType} meal`
-            : targetMealType 
-            ? `Creating new ${targetMealType} meal. Time can be adjusted.`
-            : 'Meal type will be assigned automatically based on time'
-          }
+        <Text style={{ color: theme.textColor, fontSize: 16 }}>
+          {getMealTypeLabel(selectedMealType)}
         </Text>
-      </View>
+        <Text style={{ color: theme.textSecondary, fontSize: 20 }}>🍽️</Text>
+      </TouchableOpacity>
 
       {/* Food Name */}
-      <Text style={[styles.addLabel, { color: theme.textColor, marginTop: 16 }]}>
+      <Text style={[styles.addLabel, { color: theme.textColor, marginTop: isLandscape ? 12 : 16 }]}>
         Food Name
       </Text>
       <TextInput
@@ -246,7 +262,7 @@ export default function AddProductScreen({ navigation, route }: Props) {
       />
 
       {/* Calories */}
-      <Text style={[styles.addLabel, { color: theme.textColor, marginTop: 16 }]}>
+      <Text style={[styles.addLabel, { color: theme.textColor, marginTop: isLandscape ? 12 : 16 }]}>
         Calories
       </Text>
       <TextInput
@@ -266,15 +282,37 @@ export default function AddProductScreen({ navigation, route }: Props) {
       />
 
       {/* Buttons: Save and Cancel */}
-      <View style={localStyles.buttonRow}>
+      <View style={[
+        localStyles.buttonRow, 
+        { 
+          marginTop: isLandscape ? 24 : 32,
+          marginBottom: isLandscape ? 16 : 24,
+          paddingHorizontal: isLandscape ? 0 : 0,
+        }
+      ]}>
         <TouchableOpacity
-          style={[styles.loginButton, localStyles.cancelButton, { flex: 1, marginLeft: 8 }]}
+          style={[
+            styles.loginButton, 
+            localStyles.cancelButton, 
+            { 
+              flex: 1, 
+              marginRight: 8,
+              minHeight: isLandscape ? 44 : 48
+            }
+          ]}
           onPress={onCancelPress}
         >
           <Text style={styles.loginButtonText}>Cancel</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.loginButton, { flex: 1, marginRight: 8 }]}
+          style={[
+            styles.loginButton, 
+            { 
+              flex: 1, 
+              marginLeft: 8,
+              minHeight: isLandscape ? 44 : 48
+            }
+          ]}
           onPress={onSavePress}
         >
           <Text style={styles.loginButtonText}>{isEditing ? 'Update Entry' : 'Save Entry'}</Text>
@@ -297,7 +335,14 @@ export default function AddProductScreen({ navigation, route }: Props) {
         onTimeSelect={setSelectedTime}
       />
 
-      {/* Meal type selection modal removed */}
+      {/* Meal Type Picker Modal */}
+      <MealTypePickerModal
+        isVisible={mealTypePickerVisible}
+        onClose={() => setMealTypePickerVisible(false)}
+        selectedMealType={selectedMealType}
+        onMealTypeSelect={setSelectedMealType}
+      />
+      </ScrollView>
     </KeyboardAvoidingView>
   )
 }
@@ -305,7 +350,8 @@ export default function AddProductScreen({ navigation, route }: Props) {
 const localStyles = StyleSheet.create({
   buttonRow: {
     flexDirection: 'row',
-    marginTop: 32,
+    gap: 16, // Modern spacing between buttons
+    alignItems: 'center',
   },
   cancelButton: {
     backgroundColor: '#888', // gray background for Cancel button

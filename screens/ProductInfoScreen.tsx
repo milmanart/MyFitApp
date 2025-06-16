@@ -5,10 +5,12 @@ import {
   TouchableOpacity,
   Alert,
   StyleSheet,
+  ScrollView,
 } from 'react-native'
 import { NativeStackScreenProps } from '@react-navigation/native-stack'
 import { useTheme } from '../navigation/ThemeContext'
 import { deleteEntry, recalculateMealTypesForDate } from '../services/firebaseService'
+import { useResponsiveDimensions } from '../hooks/useResponsiveDimensions'
 import type { Entry } from '../services/firebaseService'
 import styles from '../styles/styles'
 
@@ -25,6 +27,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'ProductInfo'>
 export default function ProductInfoScreen({ navigation, route }: Props) {
   const { theme } = useTheme()
   const { entry } = route.params
+  const { containerPadding, maxContentWidth, isLandscape } = useResponsiveDimensions()
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -95,7 +98,18 @@ export default function ProductInfoScreen({ navigation, route }: Props) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
-      <View style={localStyles.header}>
+      <ScrollView 
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingHorizontal: containerPadding,
+          maxWidth: maxContentWidth,
+          alignSelf: 'center',
+          width: '100%',
+        }}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={localStyles.header}>
         <TouchableOpacity 
           style={localStyles.backButton}
           onPress={handleBack}
@@ -157,21 +171,44 @@ export default function ProductInfoScreen({ navigation, route }: Props) {
         </View>
       </View>
 
-      <View style={localStyles.buttonContainer}>
+      <View style={[
+        localStyles.buttonContainer,
+        {
+          marginTop: isLandscape ? 24 : 32,
+          marginBottom: isLandscape ? 16 : 24,
+          flexDirection: 'row',
+          gap: 16,
+        }
+      ]}>
         <TouchableOpacity
-          style={[styles.loginButton, localStyles.editButton]}
+          style={[
+            styles.loginButton, 
+            localStyles.editButton,
+            { 
+              flex: 1,
+              minHeight: isLandscape ? 44 : 48
+            }
+          ]}
           onPress={handleEdit}
         >
           <Text style={styles.loginButtonText}>Edit</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={[styles.loginButton, localStyles.deleteButton]}
+          style={[
+            styles.loginButton, 
+            localStyles.deleteButton,
+            { 
+              flex: 1,
+              minHeight: isLandscape ? 44 : 48
+            }
+          ]}
           onPress={handleDelete}
         >
           <Text style={styles.loginButtonText}>Delete</Text>
         </TouchableOpacity>
       </View>
+      </ScrollView>
     </View>
   )
 }

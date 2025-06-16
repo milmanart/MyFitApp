@@ -9,6 +9,20 @@ module.exports = {
   transform: {
     '^.+\\.(ts|tsx)$': 'babel-jest',
   },
+  // Transform React Native modules that use ES6 imports
+  transformIgnorePatterns: [
+    'node_modules/(?!(@react-native|react-native|@expo|expo-|@react-native-community|@react-native-async-storage)/)',
+  ],
+  // Mock React Native modules
+  moduleNameMapper: {
+    '^react-native$': '<rootDir>/node_modules/react-native',
+    '^@react-native-community/netinfo$': '<rootDir>/__mocks__/netinfo.js',
+    '^@react-native-async-storage/async-storage$': '<rootDir>/__mocks__/async-storage.js',
+    '^react-native-toast-message$': '<rootDir>/__mocks__/toast-message.js',
+    '^expo-haptics$': '<rootDir>/__mocks__/expo-haptics.js',
+  },
+  // Setup files
+  setupFilesAfterEnv: ['<rootDir>/__mocks__/setup.js'],
   collectCoverageFrom: [
     'utils/**/*.{ts,tsx}',
     'services/**/*.{ts,tsx}',

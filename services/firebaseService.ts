@@ -1,5 +1,3 @@
-// MyFitApp/services/firebaseService.ts
-
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -24,7 +22,6 @@ import {
   writeBatch,
 } from "firebase/firestore"
 import { auth, firestore } from "../firebase"
-import { assignMealTypes } from "../utils/mealTypeUtils"
 
 export type Entry = {
   id?: string
@@ -37,11 +34,6 @@ export type Entry = {
   deletedAt?: string
 }
 
-// ----------------------
-// Auth: signUp, signIn, signOut
-// ----------------------
-
-// Helper function to get user-friendly error messages
 const getAuthErrorMessage = (errorCode: string): string => {
   switch (errorCode) {
     case 'auth/invalid-credential':
@@ -171,14 +163,6 @@ export const deleteUserAccount = async (password: string): Promise<void> => {
   }
 }
 
-// ----------------------
-// Firestore: addEntry, getUserEntries, getEntriesForDate
-// ----------------------
-
-/**
- * Adds one entry (Entry) to the "entries" collection.
- * Document fields: name, mealType, dateTime, calories, userId, createdAt.
- */
 export const addEntry = async (entry: Omit<Entry, "id" | "userId">): Promise<void> => {
   const user = auth.currentUser
   console.log("addEntry - Current user:", user ? "Authenticated" : "Not authenticated")
@@ -196,19 +180,16 @@ export const addEntry = async (entry: Omit<Entry, "id" | "userId">): Promise<voi
   await addDoc(collection(firestore, "entries"), entryData)
 }
 
-/**
- * Returns all entries (Entry) for the current user, ordered by dateTime.
- */
 export const getUserEntries = async (): Promise<Entry[]> => {
   const user = auth.currentUser
   if (!user) {
     throw new Error("User not authenticated")
   }
 
+  // Use only where clause to avoid needing a composite index
   const q = query(
     collection(firestore, "entries"),
-    where("userId", "==", user.uid),
-    orderBy("dateTime", "asc")
+    where("userId", "==", user.uid)
   )
   const querySnapshot = await getDocs(q)
   const entries: Entry[] = []
@@ -222,16 +203,17 @@ export const getUserEntries = async (): Promise<Entry[]> => {
       dateTime: data.dateTime,
       calories: data.calories,
       userId: data.userId,
+      isDeleted: data.isDeleted || false,
+      deletedAt: data.deletedAt || null,
     })
   })
+
+  // Sort locally by dateTime to avoid needing a composite index
+  entries.sort((a, b) => new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime())
 
   return entries
 }
 
-/**
- * Returns all entries (Entry) for the current user for a specific date.
- * Comparison is done using ISO dateTime strings between startOfDay and endOfDay.
- */
 export const getEntriesForDate = async (date: Date): Promise<Entry[]> => {
   const user = auth.currentUser
   console.log("getEntriesForDate - Current user:", user ? "Authenticated" : "Not authenticated")
@@ -258,6 +240,8 @@ export const getEntriesForDate = async (date: Date): Promise<Entry[]> => {
       dateTime: data.dateTime,
       calories: data.calories,
       userId: data.userId,
+      isDeleted: data.isDeleted || false,
+      deletedAt: data.deletedAt || null,
     })
   })
 
@@ -281,22 +265,20 @@ export const getEntriesForDate = async (date: Date): Promise<Entry[]> => {
   return filteredEntries
 }
 
-/**
- * Updates an existing entry in Firestore
- */
 export const updateEntry = async (entryId: string, updates: Partial<Omit<Entry, "id" | "userId">>): Promise<void> => {
   const user = auth.currentUser
   if (!user) {
     throw new Error("User not authenticated")
   }
 
+  console.log('FirebaseService.updateEntry called with:', { entryId, updates })
+  
   const entryRef = doc(firestore, "entries", entryId)
   await updateDoc(entryRef, updates)
+  
+  console.log('FirebaseService.updateEntry completed successfully')
 }
 
-/**
- * Soft deletes an entry (marks as deleted instead of removing)
- */
 export const deleteEntry = async (entryId: string): Promise<void> => {
   const user = auth.currentUser
   if (!user) {
@@ -310,9 +292,6 @@ export const deleteEntry = async (entryId: string): Promise<void> => {
   })
 }
 
-/**
- * Permanently deletes an entry from Firestore
- */
 export const permanentlyDeleteEntry = async (entryId: string): Promise<void> => {
   const user = auth.currentUser
   if (!user) {
@@ -323,9 +302,6 @@ export const permanentlyDeleteEntry = async (entryId: string): Promise<void> => 
   await deleteDoc(entryRef)
 }
 
-/**
- * Restores a soft-deleted entry
- */
 export const restoreEntry = async (entryId: string): Promise<void> => {
   const user = auth.currentUser
   if (!user) {
@@ -339,9 +315,6 @@ export const restoreEntry = async (entryId: string): Promise<void> => {
   })
 }
 
-/**
- * Gets all deleted entries for the current user
- */
 export const getDeletedEntries = async (): Promise<Entry[]> => {
   const user = auth.currentUser
   if (!user) {
@@ -377,32 +350,42 @@ export const getDeletedEntries = async (): Promise<Entry[]> => {
   return entries
 }
 
-/**
- * Recalculates and updates meal types for all entries on a specific date
- */
 export const recalculateMealTypesForDate = async (date: Date): Promise<void> => {
   const user = auth.currentUser
   if (!user) {
     throw new Error("User not authenticated")
   }
 
-  // Get all entries for the date
-  const entries = await getEntriesForDate(date)
+  const entriesForDate = await getEntriesForDate(date)
   
-  if (entries.length === 0) return
+  if (entriesForDate.length === 0) {
+    return
+  }
 
-  // Assign new meal types
-  const updatedEntries = assignMealTypes(entries)
+  const sortedEntries = entriesForDate.sort((a, b) => 
+    new Date(a.dateTime).getTime() - new Date(b.dateTime).getTime()
+  )
 
-  // Batch update all entries
-  const batch = writeBatch(firestore)
-  
-  updatedEntries.forEach((entry) => {
-    if (entry.id) {
-      const entryRef = doc(firestore, "entries", entry.id)
-      batch.update(entryRef, { mealType: entry.mealType })
+  for (let i = 0; i < sortedEntries.length; i++) {
+    const entry = sortedEntries[i]
+    const entryTime = new Date(entry.dateTime)
+    const hour = entryTime.getHours()
+    
+    let newMealType: string
+    
+    if (hour < 11) {
+      newMealType = 'breakfast'
+    } else if (hour < 15) {
+      newMealType = 'lunch'
+    } else if (hour < 18) {
+      newMealType = 'snack'
+    } else {
+      newMealType = 'dinner'
     }
-  })
 
-  await batch.commit()
+    if (entry.mealType !== newMealType && entry.id) {
+      await updateEntry(entry.id, { mealType: newMealType as any })
+    }
+  }
 }
+

@@ -11,6 +11,7 @@ import {
 // Import from navigation instead of components
 import { AuthContext } from '../navigation/AuthContext'
 import { useTheme } from '../navigation/ThemeContext'
+import { useResponsiveDimensions } from '../hooks/useResponsiveDimensions'
 import styles from '../styles/styles'
 import { NativeStackScreenProps } from '@react-navigation/native-stack'
 
@@ -27,6 +28,7 @@ type Props = NativeStackScreenProps<RootStackParamList, 'Login'>
 export default function LoginScreen({ navigation }: Props) {
   const { signIn } = useContext(AuthContext)
   const { theme } = useTheme()
+  const { containerPadding, maxContentWidth } = useResponsiveDimensions()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
@@ -45,8 +47,16 @@ export default function LoginScreen({ navigation }: Props) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
-      <Text style={[styles.loginTitle, { marginBottom: 20, color: theme.textColor }]}>Login</Text>
-      <View style={styles.loginForm}>
+      <View style={{
+        flex: 1,
+        justifyContent: 'center',
+        paddingHorizontal: containerPadding,
+        maxWidth: maxContentWidth,
+        alignSelf: 'center',
+        width: '100%'
+      }}>
+        <Text style={[styles.loginTitle, { marginBottom: 20, color: theme.textColor }]}>Login</Text>
+        <View style={styles.loginForm}>
         <TextInput
           style={[
             styles.loginInput,
@@ -89,6 +99,7 @@ export default function LoginScreen({ navigation }: Props) {
             Don't have an account? <Text style={{ fontWeight: 'bold' }}>Sign Up</Text>
           </Text>
         </TouchableOpacity>
+        </View>
       </View>
     </View>
   )

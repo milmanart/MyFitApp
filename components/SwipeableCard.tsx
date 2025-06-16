@@ -6,24 +6,22 @@ import {
   Animated,
   PanResponder,
   Dimensions,
-  Alert,
 } from 'react-native'
 import { useTheme } from '../navigation/ThemeContext'
 import type { Entry } from '../services/firebaseService'
 import styles from '../styles/styles'
-import { lightHaptic, warningHaptic, errorHaptic } from '../utils/hapticUtils'
+import { lightHaptic, errorHaptic } from '../utils/hapticUtils'
 
 interface SwipeableCardProps {
   item: Entry
   onPress: () => void
-  onEdit: () => void
   onDelete: () => void
 }
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window')
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25
 
-export default function SwipeableCard({ item, onPress, onEdit, onDelete }: SwipeableCardProps) {
+export default function SwipeableCard({ item, onPress, onDelete }: SwipeableCardProps) {
   const { theme } = useTheme()
   const translateX = useRef(new Animated.Value(0)).current
   const lastOffset = useRef(0)
@@ -54,8 +52,8 @@ export default function SwipeableCard({ item, onPress, onEdit, onDelete }: Swipe
       const { dx, vx } = gestureState
       let toValue = 0
 
-      if (dx < -SWIPE_THRESHOLD || vx < -0.5) {
-        // Swipe left - delete
+      if (Math.abs(dx) > SWIPE_THRESHOLD || Math.abs(vx) > 0.5) {
+        // Swipe in any direction - delete
         toValue = 0
         Animated.spring(translateX, {
           toValue,
@@ -66,20 +64,6 @@ export default function SwipeableCard({ item, onPress, onEdit, onDelete }: Swipe
           translateX.flattenOffset()
           lastOffset.current = 0
           handleDelete()
-        })
-        return
-      } else if (dx > SWIPE_THRESHOLD || vx > 0.5) {
-        // Swipe right - edit
-        toValue = 0
-        Animated.spring(translateX, {
-          toValue,
-          useNativeDriver: true,
-          tension: 100,
-          friction: 8,
-        }).start(() => {
-          translateX.flattenOffset()
-          lastOffset.current = 0
-          handleEdit()
         })
         return
       }
@@ -101,15 +85,6 @@ export default function SwipeableCard({ item, onPress, onEdit, onDelete }: Swipe
     onDelete()
   }
 
-  const handleEdit = async () => {
-    await lightHaptic() // Light vibration for edit action
-    onEdit()
-  }
-
-  // Get current swipe direction and amount for dynamic background
-  const getSwipeDirection = () => {
-    return translateX._value
-  }
 
   return (
     <View style={{ marginBottom: 12 }}>
@@ -126,13 +101,13 @@ export default function SwipeableCard({ item, onPress, onEdit, onDelete }: Swipe
           }
         ]}
       >
-        {/* Edit action (appears when swiping right) */}
+        {/* Delete action (appears when swiping right) */}
         <Animated.View 
           style={[
             styles.swipeAction,
             styles.swipeActionLeft,
             { 
-              backgroundColor: '#4CAF50',
+              backgroundColor: '#f44336',
               opacity: translateX.interpolate({
                 inputRange: [0, 50, SCREEN_WIDTH],
                 outputRange: [0, 1, 1],
@@ -141,7 +116,7 @@ export default function SwipeableCard({ item, onPress, onEdit, onDelete }: Swipe
             }
           ]}
         >
-          <Text style={styles.swipeActionText}>✏️ Edit</Text>
+          <Text style={styles.swipeActionText}>🗑️ Delete</Text>
         </Animated.View>
         
         {/* Delete action (appears when swiping left) */}

@@ -3,7 +3,7 @@
     "name": "MyFitApp",
     "slug": "MyFitApp",
     "version": "1.0.0",
-    "orientation": "portrait",
+    "orientation": "default",
     "scheme": "myfitapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -11,10 +11,16 @@
       "supportsTablet": true
     },
     "android": {
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.milmanart.MyFitApp"
     },
     "web": {
       "bundler": "metro"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "a6252429-92a4-4b12-88c3-fa7dad912565"
+      }
     }
   }
 }

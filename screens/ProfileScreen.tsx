@@ -12,6 +12,7 @@ import { NativeStackScreenProps } from '@react-navigation/native-stack'
 import { updatePassword, reauthenticateWithCredential, EmailAuthProvider } from 'firebase/auth'
 import { useTheme } from '../navigation/ThemeContext'
 import { AuthContext } from '../navigation/AuthContext'
+import { useResponsiveDimensions } from '../hooks/useResponsiveDimensions'
 import { updateUserProfile, deleteUserAccount } from '../services/firebaseService'
 import { RootStackParamList } from '../App'
 
@@ -20,6 +21,7 @@ type ProfileScreenProps = NativeStackScreenProps<RootStackParamList, 'Profile'>
 export default function ProfileScreen({ navigation }: ProfileScreenProps) {
   const { theme } = useTheme()
   const { user } = useContext(AuthContext)
+  const { containerPadding, maxContentWidth } = useResponsiveDimensions()
   const [isEditing, setIsEditing] = useState(false)
   const [displayName, setDisplayName] = useState(user?.displayName || '')
   const [email, setEmail] = useState(user?.email || '')
@@ -134,8 +136,17 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
 
   return (
     <View style={[styles.container, { backgroundColor: theme.backgroundColor }]}>
-      {/* Header */}
-      <View style={[styles.header, { borderBottomColor: theme.border }]}>
+      <ScrollView 
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingHorizontal: containerPadding,
+          maxWidth: maxContentWidth,
+          alignSelf: 'center',
+          width: '100%'
+        }}
+      >
+        {/* Header */}
+        <View style={[styles.header, { borderBottomColor: theme.border }]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
@@ -424,6 +435,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps) {
             </Text>
           </TouchableOpacity>
         )}
+      </ScrollView>
       </ScrollView>
     </View>
   )

@@ -1,9 +1,5 @@
-// Utility functions for haptic feedback
 import * as Haptics from 'expo-haptics'
 
-/**
- * Light haptic feedback for button presses and selections
- */
 export const lightHaptic = async () => {
   try {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)
@@ -12,9 +8,6 @@ export const lightHaptic = async () => {
   }
 }
 
-/**
- * Medium haptic feedback for confirmations and successful actions
- */
 export const mediumHaptic = async () => {
   try {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)
@@ -23,9 +16,6 @@ export const mediumHaptic = async () => {
   }
 }
 
-/**
- * Heavy haptic feedback for important actions and errors
- */
 export const heavyHaptic = async () => {
   try {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy)
@@ -34,9 +24,6 @@ export const heavyHaptic = async () => {
   }
 }
 
-/**
- * Success haptic feedback for completed actions
- */
 export const successHaptic = async () => {
   try {
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success)
@@ -45,9 +32,6 @@ export const successHaptic = async () => {
   }
 }
 
-/**
- * Warning haptic feedback for caution actions
- */
 export const warningHaptic = async () => {
   try {
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)
@@ -56,9 +40,6 @@ export const warningHaptic = async () => {
   }
 }
 
-/**
- * Error haptic feedback for failed actions
- */
 export const errorHaptic = async () => {
   try {
     await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
@@ -67,9 +48,6 @@ export const errorHaptic = async () => {
   }
 }
 
-/**
- * Selection haptic feedback for UI element selection
- */
 export const selectionHaptic = async () => {
   try {
     await Haptics.selectionAsync()

@@ -1,5 +1,3 @@
-// MyFitApp/navigation/AuthContext.tsx
-
 import React, { createContext, useState, useEffect, ReactNode } from "react"
 import { onAuthStateChanged, type User } from "firebase/auth"
 import AsyncStorage from '@react-native-async-storage/async-storage'
@@ -9,8 +7,8 @@ import {
   signUp as firebaseSignUp,
   signOut as firebaseSignOut,
 } from "../services/firebaseService"
+import { OfflineDataService } from "../services/offlineDataService"
 
-// Keys for AsyncStorage
 const AUTH_USER_KEY = 'auth_user'
 const AUTH_STATE_KEY = 'auth_state'
 
@@ -38,7 +36,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // Load cached auth state for instant UI
   useEffect(() => {
     const loadCachedAuth = async () => {
       try {
@@ -73,12 +70,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       setUser(firebaseUser)
       setLoading(false)
 
-      // Cache auth state
       try {
         if (firebaseUser) {
           console.log("Caching authenticated user state")
           await AsyncStorage.setItem(AUTH_STATE_KEY, 'authenticated')
-          // Store minimal user data to avoid serialization issues
           const userData = {
             uid: firebaseUser.uid,
             email: firebaseUser.email,
@@ -87,10 +82,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             photoURL: firebaseUser.photoURL,
           }
           await AsyncStorage.setItem(AUTH_USER_KEY, JSON.stringify(userData))
+          
+          await OfflineDataService.initializeOfflineMode(firebaseUser.uid)
         } else {
-          console.log("Clearing cached auth state")
+          console.log("Clearing cached auth state and offline data")
           await AsyncStorage.removeItem(AUTH_STATE_KEY)
           await AsyncStorage.removeItem(AUTH_USER_KEY)
+          
+          await OfflineDataService.cleanup()
         }
       } catch (error) {
         console.log('Error caching auth state:', error)

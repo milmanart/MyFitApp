@@ -3,8 +3,6 @@ export default {
   // Container
   container: {
     flex: 1,
-    justifyContent: 'center',
-    paddingHorizontal: 24,
     backgroundColor: '#fff',
   },
 
@@ -48,7 +46,6 @@ export default {
     justifyContent: 'space-between', // Button on left, title in center, placeholder on right
     alignItems: 'center',
     marginBottom: 32,
-    paddingHorizontal: 0, // Remove horizontal padding
     marginTop: 16,       // Move entire header down slightly
   },
   sidebarButton: {
@@ -127,6 +124,7 @@ export default {
   },
   listContent: {
     paddingBottom: 16,
+    flexGrow: 1,
   },
 
   // Card
